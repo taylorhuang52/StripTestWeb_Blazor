@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Strip Test Report Generator</title>
+<base href="/" />
+<style>
+:root {
+  --bg:     #0f1117; --panel: #1a1e2b; --card:  #21263a;
+  --border: #373f5a; --accent:#4682d2; --accent2:#7a55ea;
+  --text:   #d7dce8; --sub:   #717999;
+  --ok:     #3cc78e; --warn:  #f0aa28; --err:   #e64b4b;
+  --pause:  #f0a828; --stop:  #d23c3c; --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text)}
+#app{height:100%}
+.app-shell{height:100%}
+
+/* Layout */
+.layout{display:flex;flex-direction:column;height:100vh}
+.app-header{background:var(--panel);padding:0 24px;height:54px;display:flex;align-items:center;
+  border-bottom:2px solid transparent;
+  border-image:linear-gradient(90deg,var(--accent),var(--accent2)) 1;flex-shrink:0}
+.app-title{font-size:15px;font-weight:700}
+.app-sub{font-size:10px;color:var(--sub);margin-top:2px}
+.body-wrap{display:flex;flex:1;overflow:hidden}
+
+/* Side */
+.side-panel{width:290px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  padding:18px 16px;display:flex;flex-direction:column;overflow-y:auto}
+.sec-label{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:8px}
+
+/* Drop zone */
+.drop-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:24px 12px;
+  text-align:center;cursor:pointer;transition:.2s}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(70,130,210,.07)}
+.drop-icon{font-size:28px;margin-bottom:8px}
+.drop-zone p{font-size:12px;color:var(--sub);line-height:1.5}
+.drop-zone strong{color:var(--text)}
+
+/* Stat box */
+.stat-box{background:var(--card);border-radius:var(--radius);padding:12px;
+  font-size:12px;line-height:2;color:var(--sub);min-height:60px}
+.stat-box b{color:var(--text)}
+
+/* Buttons */
+.btn{border:none;border-radius:var(--radius);padding:0 16px;height:40px;font-size:13px;
+  font-weight:700;cursor:pointer;color:#fff;width:100%;transition:filter .15s}
+.btn:hover:not(:disabled){filter:brightness(1.15)}
+.btn:active:not(:disabled){filter:brightness(.88)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-green{background:var(--ok)} .btn-pause{background:var(--pause);flex:1}
+.btn-stop{background:var(--stop);flex:1} .btn-accent{background:var(--accent)}
+.btn-dim{background:var(--card);color:var(--sub);font-size:11px;height:28px;margin-top:8px;border:1px solid var(--border)}
+.btn-sm{height:28px;font-size:11px}
+
+/* Progress */
+.progress-track{height:6px;background:var(--card);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .3s}
+.status-text{font-size:11px;color:var(--sub);min-height:16px}
+.status-text.ok{color:var(--ok)} .status-text.warn{color:var(--warn)}
+
+/* Main */
+.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px}
+.empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:var(--sub);font-size:13px;gap:12px}
+.empty-icon{font-size:40px}
+
+/* Table */
+.table-wrap{flex:1;overflow:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px;font-family:Consolas,monospace}
+thead th{background:var(--card);padding:8px 10px;text-align:center;font-weight:700;
+  color:var(--sub);font-size:11px;position:sticky;top:0;z-index:1;white-space:nowrap;
+  border-bottom:1px solid var(--border)}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04)}
+tbody tr:hover{background:rgba(255,255,255,.03)}
+td{padding:7px 10px;text-align:center;color:var(--sub);white-space:nowrap}
+td:first-child{text-align:left;color:var(--text)}
+.row-done{background:rgba(60,199,142,.04)}
+.row-error{background:rgba(230,75,75,.07)}
+.err-cell{color:var(--err)!important;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+
+/* Badge */
+.badge{display:inline-block;padding:1px 8px;border-radius:20px;font-size:10px;font-weight:700}
+.badge-wait{background:#2a2f44;color:var(--sub)}
+.badge-proc{background:#2d3a20;color:var(--warn)}
+.badge-done{background:#1a3828;color:var(--ok)}
+.badge-err{background:#3a1e1e;color:var(--err)}
+
+/* Footer */
+.app-footer{height:30px;background:var(--panel);border-top:1px solid var(--border);
+  display:flex;align-items:center;padding:0 16px;font-size:11px;color:var(--sub);gap:10px;flex-shrink:0}
+.spinner{width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Blazor loading */
+#blazor-error-ui{display:none;background:#3a1e1e;color:var(--err);padding:8px 16px;
+  position:fixed;bottom:0;width:100%;text-align:center;font-size:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div style="display:flex;height:100vh;align-items:center;justify-content:center;
+              flex-direction:column;gap:16px;color:#717999;font-family:Segoe UI,sans-serif">
+    <div style="font-size:40px">⬡</div>
+    <div style="font-size:14px">Loading Strip Test Report Generator…</div>
+    <div style="width:200px;height:4px;background:#21263a;border-radius:2px;overflow:hidden">
+      <div style="height:100%;background:linear-gradient(90deg,#4682d2,#7a55ea);
+                  animation:ld 1.2s ease-in-out infinite alternate;border-radius:2px"></div>
+    </div>
+  </div>
+</div>
+<div id="blazor-error-ui">
+  An error has occurred. <a href="">Reload</a>
+</div>
+
+<script>
+window.blazorDropHelper = {
+  handleDrop: async function(dotnet, inputId) {
+    // Drag-drop is handled by the browser's DataTransfer API
+    // We use a DataTransfer trick: simulate drop on the hidden input
+    // Note: for security reasons browsers block setting files on input programmatically
+    // So we read the files from the last dragover event stored globally
+    const files = window._lastDroppedFiles;
+    if (!files || files.length === 0) return;
+    for (const file of files) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext !== 'xls' && ext !== 'xlsx') continue;
+      if (file.name.startsWith('~$')) continue;
+      const buf = await file.arrayBuffer();
+      const bytes = Array.from(new Uint8Array(buf));
+      await dotnet.invokeMethodAsync('ReceiveDroppedFile', file.name, bytes);
+    }
+    window._lastDroppedFiles = null;
+  },
+  downloadFile: function(fileName, bytes) {
+    const blob = new Blob([new Uint8Array(bytes)], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = fileName; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+};
+
+// Capture dropped files globally before Blazor handles the event
+document.addEventListener('drop', function(e) {
+  if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+    window._lastDroppedFiles = Array.from(e.dataTransfer.files);
+  }
+}, true);
+</script>
+
+<script src="_framework/blazor.webassembly.js"></script>
+</body>
+</html>
